@@ -13,3 +13,11 @@ test.last_data.frame_xtsible <- function() {
   x2 <- data.frame(x1, y = 2:1)
   checkIdentical(last(x2), head(x2, 1))
 }
+
+# basic functionality on ts
+test.first_ts <- function() {
+  checkIdentical(first(LakeHuron), head(LakeHuron, 1))
+}
+test.last_ts <- function() {
+  checkIdentical(last(LakeHuron), tail(LakeHuron, 1))
+}

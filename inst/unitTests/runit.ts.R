@@ -93,3 +93,10 @@ test.ts12_reclass_subset_as.xts_j1 <- function() {
 test.ts12_reclass_subset_ts_j1 <- function() {
   checkIdentical(sample.ts12[,1],reclass(try.xts(sample.ts12[,1])))
 }
+
+test.ts_try.xts_subset_reclass <- function() {
+  DEACTIVATED("This needs to be investigated")
+  x <- try.xts(LakeHuron)
+  y <- x[1:3,]
+  checkIdentical(LakeHuron[1:3], reclass(y))
+}

@@ -28,9 +28,9 @@ function(x,...)
 `first.default` <-
 function(x,n=1,keep=FALSE,...)
 {
-  xx <- try.xts(x, error=FALSE)
-  if(is.xts(xx)) {
-    xx <- first.xts(x, n=n, keep=keep)
+  xtx <- try.xts(x, error=FALSE)
+  if(is.xts(xtx)) {
+    xx <- first(xtx, n=n, keep=keep)
     return(reclass(xx))
   }
   if(is.null(dim(x))) {
