@@ -4,93 +4,103 @@
 
 /* Binary search range to find interval contributed by Corwin Joy */
 
-/* Find the smallest index for which A[index] >= key */
-int lower_bound(double key, double *A, int len_A) {
-  int mid;
-  int lo = 0;
-  int hi = len_A-1;
-  while (lo < hi) {
-    mid = lo + (hi - lo) / 2;
-    if (A[mid] >= key) {
-      hi = mid;
-    }
-    else {
-      lo = mid + 1;
-    }
-  }
+static struct keyvec {
+  double *dvec;
+  double dkey;
+  int *ivec;
+  int ikey;
+};
 
-  return lo; // lo is the least x for which A[x] >= key is true
+typedef int (*bound_comparer)(const struct keyvec, const int);
+static inline int
+cmp_dbl_upper(const struct keyvec kv, const int i)
+{
+  const double cv = kv.dvec[i];
+  const double ck = kv.dkey;
+  return cv > ck;
 }
-
-/* Find the smallest index for which A[index] > key */
-int upper_bound(double key, double *A, int len_A) {
-  int mid;
-  int lo = 0;
-  int hi = len_A - 1;
-  while (lo < hi) {
-    mid = lo + (hi - lo) / 2;
-    if (A[mid] > key) {
-      hi = mid;
-    }
-    else {
-      lo = mid + 1;
-    }
-  }
-
-  return lo; // lo is the least x for which A[x] > key is true
+static inline int
+cmp_dbl_lower(const struct keyvec kv, const int i)
+{
+  const double cv = kv.dvec[i];
+  const double ck = kv.dkey;
+  return cv >= ck;
 }
-
-/* bound the key in the array of vals.
-   if start == true, return lowest index s.t. vals[index] >= key
-   if start == false, return highest index s.t. vals[index] <= key
-*/
-int bound(double key, double *vals, int len_vals, int start) {
-  int item;
-  if (start) {
-    item = lower_bound(key, vals, len_vals);
-  }
-  else {
-    item = upper_bound(key, vals, len_vals);
-    /* if handles edge cases. item may be at the lo/hi end of array */
-    if (item > 0 && vals[item] > key) --item;
-  }
-  return(item);
+static inline int
+cmp_int_upper(const struct keyvec kv, const int i)
+{
+  const int cv = kv.ivec[i];
+  const int ck = kv.ikey;
+  return cv > ck;
+}
+static inline int
+cmp_int_lower(const struct keyvec kv, const int i)
+{
+  const int cv = kv.ivec[i];
+  const int ck = kv.ikey;
+  return cv >= ck;
 }
 
 SEXP binsearch(SEXP key, SEXP vec, SEXP start)
 {
-  double *rvec;
-  double *rkey;
-  int item;
-  int len_vec = length(vec);
-
-  if(!(TYPEOF(vec) == REALSXP && TYPEOF(key) == REALSXP)) {
-    error("both key and vec must be of type double");
-  }
-
-  if(isNull(start)) {
+  if (!isLogical(start)) {
     error("start must be specified as true or false");
   }
 
-  if(len_vec < 1) {
+  if (length(vec) < 1) {
     return ScalarInteger(NA_INTEGER);
   }
 
-  rvec = REAL(vec);
-  rkey = REAL(key);
-  item = bound(*rkey, rvec, len_vec, LOGICAL(start)[0]);
+  int use_start = LOGICAL(start)[0];
+  bound_comparer cmp_func = NULL;
+  struct keyvec data;
 
-  if(LOGICAL(start)[0]) {
-    if(rvec[item] < *rkey) {
-      /* start = TRUE, but entire array < key */
-      return ScalarInteger(NA_INTEGER);
+  switch (TYPEOF(vec)) {
+    case REALSXP:
+      data.dkey = REAL(key)[0];
+      data.dvec = REAL(vec);
+      cmp_func = (use_start) ? cmp_dbl_lower : cmp_dbl_upper;
+      break;
+    case INTSXP:
+      data.ikey = INTEGER(key)[0];
+      data.ivec = INTEGER(vec);
+      cmp_func = (use_start) ? cmp_int_lower : cmp_int_upper;
+      break;
+    default:
+      error("unsupported type");
+  }
+
+  int mid;
+  int lo = 0;
+  int hi = length(vec) - 1;
+
+  while (lo < hi) {
+    mid = lo + (hi - lo) / 2;
+    if (cmp_func(data, mid)) {
+      hi = mid;
     }
-  } else {
-    if(rvec[item] > *rkey) {
-      /* start = FALSE, but entire array > key */
-      return ScalarInteger(NA_INTEGER);
+    else {
+      lo = mid + 1;
     }
   }
-  return ScalarInteger(item+1);
-}
 
+  /* handle edge cases where item may be at the lo/hi end of array */
+  if (use_start) {
+    /* cmp_func is: vec[lo] >= k */
+    if (cmp_func(data, lo)) {
+      lo++;
+    } else {
+      lo = NA_INTEGER;
+    }
+  } else {
+    if (lo > 0 && cmp_func(data, lo)) lo--;
+    /* cmp_func is: vec[lo] > k */
+    if (cmp_func(data, lo)) {
+      lo = NA_INTEGER;
+    } else {
+      lo++;
+    }
+  }
+
+  return ScalarInteger(lo);
+}
